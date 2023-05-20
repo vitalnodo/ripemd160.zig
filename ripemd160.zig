@@ -52,7 +52,7 @@ pub const Ripemd160 = struct {
 
     fn blockToWords(block: *const [block_length]u8) [16]u32 {
         var words: [16]u32 = undefined;
-        for (words) |_, i| {
+        for (words, 0..) |_, i| {
             // zig fmt: off
             words[i] = 0;
             words[i] |= (@as(u32, block[i * 4 + 3]) << 24);
@@ -170,7 +170,7 @@ pub const Ripemd160 = struct {
 
     pub fn final(d: *Self, out: *[digest_length]u8) void {
         // The buffer here will never be completely full.
-        mem.set(u8, d.buf[d.buf_len..], 0);
+        @memset(d.buf[d.buf_len..], 0);
 
         // Append padding bits.
         d.buf[d.buf_len] = 0x80;
@@ -179,7 +179,7 @@ pub const Ripemd160 = struct {
         // > 448 mod 512 so need to add an extra round to wrap around.
         if (64 - d.buf_len < 8) {
             d.round(d.buf[0..]);
-            mem.set(u8, d.buf[0..], 0);
+            @memset(d.buf[0..], 0);
         }
 
         // Append message length in more simple way
@@ -188,7 +188,7 @@ pub const Ripemd160 = struct {
 
         d.round(d.buf[0..]);
 
-        for (d.s) |s, j| {
+        for (d.s, 0..) |s, j| {
             mem.writeIntLittle(u32, out[4 * j ..][0..4], s);
         }
     }
@@ -211,7 +211,7 @@ fn assertEqualHash(comptime Hasher: anytype, comptime expected_hex: *const [Hash
 // Assert `expected` == hex(`input`) where `input` is a bytestring
 fn assertEqual(comptime expected_hex: [:0]const u8, input: []const u8) !void {
     var expected_bytes: [expected_hex.len / 2]u8 = undefined;
-    for (expected_bytes) |*r, i| {
+    for (&expected_bytes, 0..) |*r, i| {
         r.* = std.fmt.parseInt(u8, expected_hex[2 * i .. 2 * i + 2], 16) catch unreachable;
     }
 
