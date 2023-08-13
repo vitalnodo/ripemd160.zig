@@ -45,7 +45,7 @@ pub const Ripemd160 = struct {
 
         // Copy any remainder for next pass.
         mem.copy(u8, d.buf[d.buf_len..], b[off..]);
-        d.buf_len += @intCast(u8, b[off..].len);
+        d.buf_len += @intCast(b[off..].len);
 
         d.total_len += b.len;
     }
