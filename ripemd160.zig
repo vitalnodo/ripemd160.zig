@@ -32,9 +32,9 @@ pub const Ripemd160 = struct {
         // Partial buffer exists from previous update. Copy into buffer then hash.
         if (d.buf_len != 0 and d.buf_len + b.len >= 64) {
             off += 64 - d.buf_len;
-            mem.copy(u8, d.buf[d.buf_len..], b[0..off]);
+            @memcpy(d.buf[d.buf_len..][0..off], b[0..off]);
 
-            d.round(d.buf[0..]);
+            d.round(&d.buf);
             d.buf_len = 0;
         }
 
@@ -44,8 +44,9 @@ pub const Ripemd160 = struct {
         }
 
         // Copy any remainder for next pass.
-        mem.copy(u8, d.buf[d.buf_len..], b[off..]);
-        d.buf_len += @intCast(b[off..].len);
+        const b_slice = b[off..];
+        @memcpy(d.buf[d.buf_len..][0..b_slice.len], b_slice);
+        d.buf_len += @as(u8, @intCast(b[off..].len));
 
         d.total_len += b.len;
     }
@@ -129,7 +130,7 @@ pub const Ripemd160 = struct {
         const left_K = [5]u32{ 0x00000000, 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xA953FD4E };
         const right_K = [5]u32{ 0x50A28BE6, 0x5C4DD124, 0x6D703EF3, 0x7A6D76E9, 0x00000000 };
 
-        var words: [16]u32 = blockToWords(b);
+        const words: [16]u32 = blockToWords(b);
         var tmp: u32 = undefined;
         var j: usize = 0;
         while (j < 80) : (j += 1) {
@@ -184,12 +185,12 @@ pub const Ripemd160 = struct {
 
         // Append message length in more simple way
         const len = (d.total_len * 8);
-        std.mem.writeIntLittle(u64, d.buf[56..64], len);
+        mem.writeInt(u64, d.buf[56..64], len, .little);
 
         d.round(d.buf[0..]);
 
         for (d.s, 0..) |s, j| {
-            mem.writeIntLittle(u32, out[4 * j ..][0..4], s);
+            mem.writeInt(u32, out[4 * j ..][0..4], s, .little);
         }
     }
 
