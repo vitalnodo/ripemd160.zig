@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const mem = std.mem;
 
 pub const Ripemd160 = struct {
@@ -201,62 +202,62 @@ pub const Ripemd160 = struct {
     }
 };
 
-// Hash using the specified hasher `H` asserting `expected == H(input)`.
-fn assertEqualHash(comptime Hasher: anytype, comptime expected_hex: *const [Hasher.digest_length * 2:0]u8, input: []const u8) !void {
-    var h: [Hasher.digest_length]u8 = undefined;
-    Hasher.hash(input, &h, .{});
-
-    try assertEqual(expected_hex, &h);
-}
-
-// Assert `expected` == hex(`input`) where `input` is a bytestring
-fn assertEqual(comptime expected_hex: [:0]const u8, input: []const u8) !void {
-    var expected_bytes: [expected_hex.len / 2]u8 = undefined;
-    for (&expected_bytes, 0..) |*r, i| {
-        r.* = std.fmt.parseInt(u8, expected_hex[2 * i .. 2 * i + 2], 16) catch unreachable;
-    }
-
-    try std.testing.expectEqualSlices(u8, &expected_bytes, input);
-}
-
 test "test vectors" {
-    var out: [Ripemd160.digest_length]u8 = undefined;
-    Ripemd160.hash("", &out, .{});
-    try assertEqualHash(Ripemd160, "9c1185a5c5e9fc54612808977ee8f548b2258d31", "");
-    try assertEqualHash(Ripemd160, "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe", "a");
-    try assertEqualHash(Ripemd160, "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc", "abc");
-    try assertEqualHash(Ripemd160, "5d0689ef49d2fae572b881b123a85ffa21595f36", "message digest");
-    try assertEqualHash(Ripemd160, "f71c27109c692c1b56bbdceb5b9d2865b3708dbc", "abcdefghijklmnopqrstuvwxyz");
-    try assertEqualHash(Ripemd160, "12a053384a9c0c88e405a06c27dcf49ada62eb2b", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
-    try assertEqualHash(Ripemd160, "b0e20b6e3116640286ed3a87a5713079b21f5189", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
-    try assertEqualHash(Ripemd160, "9b752e45573d4b39f4dbd3323cab82bf63326bfb", "1234567890" ** 8);
-    try assertEqualHash(Ripemd160, "52783243c1697bdbe16d37f97f68f08325dc1528", "a" ** 1000000);
+    const input = [_][]const u8{
+        "",
+        "a",
+        "abc",
+        "message digest",
+        "abcdefghijklmnopqrstuvwxyz",
+        "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+        "1234567890" ** 8,
+        "a" ** 1000000,
+    };
+    const output = [_][]const u8{
+        "9c1185a5c5e9fc54612808977ee8f548b2258d31",
+        "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe",
+        "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc",
+        "5d0689ef49d2fae572b881b123a85ffa21595f36",
+        "f71c27109c692c1b56bbdceb5b9d2865b3708dbc",
+        "12a053384a9c0c88e405a06c27dcf49ada62eb2b",
+        "b0e20b6e3116640286ed3a87a5713079b21f5189",
+        "9b752e45573d4b39f4dbd3323cab82bf63326bfb",
+        "52783243c1697bdbe16d37f97f68f08325dc1528",
+    };
+    for (0..input.len) |i| {
+        var expected_output: [Ripemd160.digest_length]u8 = undefined;
+        _ = try std.fmt.hexToBytes(&expected_output, output[i]);
+        var actual_output: [Ripemd160.digest_length]u8 = undefined;
+        Ripemd160.hash(input[i], &actual_output, .{});
+        try testing.expectEqualSlices(u8, &expected_output, &actual_output);
+    }
 }
 
 test "streaming" {
     var h = Ripemd160.init(.{});
     var out: [Ripemd160.digest_length]u8 = undefined;
     h.final(&out);
-    try assertEqual("9c1185a5c5e9fc54612808977ee8f548b2258d31", out[0..]);
+    try testing.expectEqualSlices(u8, &[_]u8{
+        0x9c, 0x11, 0x85, 0xa5, 0xc5, 0xe9, 0xfc, 0x54, 0x61, 0x28,
+        0x08, 0x97, 0x7e, 0xe8, 0xf5, 0x48, 0xb2, 0x25, 0x8d, 0x31,
+    }, &out);
 
     h = Ripemd160.init(.{});
     h.update("abc");
     h.final(&out);
-    try assertEqual("8eb208f7e05d987a9b044a8e98c6b087f15a0bfc", out[0..]);
+    try testing.expectEqualSlices(u8, &[_]u8{
+        0x8e, 0xb2, 0x08, 0xf7, 0xe0, 0x5d, 0x98, 0x7a, 0x9b, 0x04,
+        0x4a, 0x8e, 0x98, 0xc6, 0xb0, 0x87, 0xf1, 0x5a, 0x0b, 0xfc,
+    }, &out);
 
     h = Ripemd160.init(.{});
     h.update("a");
     h.update("b");
     h.update("c");
     h.final(&out);
-    try assertEqual("8eb208f7e05d987a9b044a8e98c6b087f15a0bfc", out[0..]);
-}
-
-test "aligned" {
-    var block = [_]u8{0} ** Ripemd160.block_length;
-    var out: [Ripemd160.digest_length]u8 = undefined;
-
-    var h = Ripemd160.init(.{});
-    h.update(&block);
-    h.final(out[0..]);
+    try testing.expectEqualSlices(u8, &[_]u8{
+        0x8e, 0xb2, 0x08, 0xf7, 0xe0, 0x5d, 0x98, 0x7a, 0x9b, 0x04,
+        0x4a, 0x8e, 0x98, 0xc6, 0xb0, 0x87, 0xf1, 0x5a, 0x0b, 0xfc,
+    }, &out);
 }
